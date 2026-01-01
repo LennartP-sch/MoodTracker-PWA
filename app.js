@@ -26,6 +26,7 @@ class MoodTracker {
 
     init() {
         this.cacheElements();
+        this.renderToday();
         this.renderMonthHeaders();
         this.renderGrid();
         this.renderLegend();
@@ -40,6 +41,8 @@ class MoodTracker {
             yearTitle: document.getElementById('yearTitle'),
             prevYear: document.getElementById('prevYear'),
             nextYear: document.getElementById('nextYear'),
+            todayDate: document.getElementById('todayDate'),
+            todayMoods: document.getElementById('todayMoods'),
             monthHeaders: document.getElementById('monthHeaders'),
             moodGrid: document.getElementById('moodGrid'),
             statsGrid: document.getElementById('statsGrid'),
@@ -118,6 +121,56 @@ class MoodTracker {
     changeYear(delta) {
         this.currentYear += delta;
         this.updateYearTitle();
+        this.renderGrid();
+        this.updateStats();
+    }
+
+    renderToday() {
+        const today = new Date();
+        const day = today.getDate();
+        const month = today.getMonth();
+        const year = today.getFullYear();
+
+        // Format date like "Wednesday, Jan 1"
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dateStr = `${dayNames[today.getDay()]}, ${MONTHS[month]} ${day}`;
+        this.elements.todayDate.textContent = dateStr;
+
+        // Get today's key and current mood
+        const todayKey = this.getKey(year, month, day);
+        const currentMood = this.data[todayKey] || '';
+
+        // Render mood buttons
+        const html = Object.entries(MOODS).map(([grade, { label, color }]) => {
+            const isSelected = currentMood === grade;
+            return `
+                <button class="today-mood-btn ${isSelected ? 'selected' : ''}" data-mood="${grade}" data-key="${todayKey}">
+                    <div class="today-mood-color" style="background: ${color}">${grade}</div>
+                </button>
+            `;
+        }).join('');
+
+        this.elements.todayMoods.innerHTML = html;
+
+        // Bind click events
+        this.elements.todayMoods.querySelectorAll('.today-mood-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.setTodayMood(btn));
+        });
+    }
+
+    setTodayMood(btn) {
+        const mood = btn.dataset.mood;
+        const key = btn.dataset.key;
+
+        // Toggle if already selected
+        if (this.data[key] === mood) {
+            delete this.data[key];
+        } else {
+            this.data[key] = mood;
+        }
+
+        this.saveData();
+        this.renderToday();
         this.renderGrid();
         this.updateStats();
     }
