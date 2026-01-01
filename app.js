@@ -7,7 +7,7 @@ const MOODS = {
     'A+': { label: 'Positive core memory', color: '#2D5016' },
     'A': { label: 'Very positive', color: '#4CAF50' },
     'B': { label: 'Positive', color: '#8BC34A' },
-    'C': { label: 'Neutral', color: '#FFEB3B' },
+    'C': { label: 'Neutral (or the positive offset the negative)', color: '#FFEB3B' },
     'D': { label: 'Negative', color: '#FF9800' },
     'F': { label: 'Very negative', color: '#E91E63' }
 };
