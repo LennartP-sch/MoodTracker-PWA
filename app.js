@@ -550,6 +550,7 @@ class MoodTracker {
                 this.saveData();
                 this.saveNotes();
                 this.renderToday();
+                this.renderMonthView();
                 this.renderGrid();
                 this.updateStats();
                 alert('Data imported successfully!');
