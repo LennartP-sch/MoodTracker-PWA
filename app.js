@@ -76,7 +76,6 @@ class MoodTracker {
             monthGrid: document.getElementById('monthGrid'),
             // Share
             shareBtn: document.getElementById('shareBtn'),
-            saveImageBtn: document.getElementById('saveImageBtn'),
             shareCanvas: document.getElementById('shareCanvas')
         };
     }
@@ -117,9 +116,8 @@ class MoodTracker {
         this.elements.prevMonth.addEventListener('click', () => this.changeMonth(-1));
         this.elements.nextMonth.addEventListener('click', () => this.changeMonth(1));
 
-        // Share buttons
+        // Share button
         this.elements.shareBtn.addEventListener('click', () => this.shareYear());
-        this.elements.saveImageBtn.addEventListener('click', () => this.saveYearImage());
     }
 
     switchView(view) {
@@ -700,127 +698,6 @@ class MoodTracker {
                 this.downloadImage(blob);
             }
         }, 'image/png');
-    }
-
-    saveYearImage() {
-        // Reuse the same canvas generation logic but directly download
-        this.generateYearCanvas((blob) => {
-            this.downloadImage(blob);
-        });
-    }
-
-    generateYearCanvas(callback) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        const width = 1080;
-        const height = 1920;
-
-        canvas.width = width;
-        canvas.height = height;
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
-
-        const counts = {};
-        let total = 0;
-        Object.keys(MOODS).forEach(mood => counts[mood] = 0);
-
-        for (let month = 0; month < 12; month++) {
-            const daysInMonth = this.getDaysInMonth(this.currentYear, month);
-            for (let day = 1; day <= daysInMonth; day++) {
-                const key = this.getKey(this.currentYear, month, day);
-                const mood = this.data[key];
-                if (mood && MOODS[mood]) {
-                    counts[mood]++;
-                    total++;
-                }
-            }
-        }
-
-        const cellW = 56;
-        const cellH = 34;
-        const gap = 4;
-        const gridW = 12 * cellW + 11 * gap;
-        const gridH = 31 * cellH + 30 * gap;
-        const gridX = (width - gridW) / 2;
-        const gridY = 340;
-
-        ctx.fillStyle = '#1A1A1A';
-        ctx.font = '700 144px -apple-system, SF Pro Display, Helvetica Neue, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(`${this.currentYear}`, width / 2, 200);
-
-        ctx.fillStyle = '#999999';
-        ctx.font = '400 28px -apple-system, SF Pro Text, sans-serif';
-        ctx.fillText('My Year in Mood', width / 2, 260);
-
-        for (let day = 1; day <= 31; day++) {
-            for (let month = 0; month < 12; month++) {
-                const daysInMonth = this.getDaysInMonth(this.currentYear, month);
-                const x = gridX + month * (cellW + gap);
-                const y = gridY + (day - 1) * (cellH + gap);
-
-                if (day <= daysInMonth) {
-                    const key = this.getKey(this.currentYear, month, day);
-                    const mood = this.data[key];
-
-                    if (mood && MOODS[mood]) {
-                        ctx.fillStyle = MOODS[mood].color;
-                    } else {
-                        ctx.fillStyle = '#EEEEEE';
-                    }
-                } else {
-                    ctx.fillStyle = '#F8F8F8';
-                }
-
-                this.roundRect(ctx, x, y, cellW, cellH, 4);
-            }
-        }
-
-        const legendY = gridY + gridH + 60;
-        const legendItems = Object.entries(MOODS);
-        const legendGap = 110;
-        const legendTotalW = (legendItems.length - 1) * legendGap;
-
-        legendItems.forEach(([grade, { color }], i) => {
-            const x = (width - legendTotalW) / 2 + i * legendGap;
-            const count = counts[grade] || 0;
-            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, legendY, 22, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = ['C', 'B'].includes(grade) ? '#333' : '#FFF';
-            ctx.font = '700 14px -apple-system, SF Pro Display, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(grade, x, legendY);
-
-            ctx.fillStyle = '#666666';
-            ctx.font = '500 18px -apple-system, SF Pro Text, sans-serif';
-            ctx.textBaseline = 'alphabetic';
-            ctx.fillText(`${pct}%`, x, legendY + 50);
-        });
-
-        const statY = legendY + 110;
-        ctx.fillStyle = '#1A1A1A';
-        ctx.font = '600 52px -apple-system, SF Pro Display, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(total.toString(), width / 2, statY);
-
-        ctx.fillStyle = '#888888';
-        ctx.font = '400 22px -apple-system, SF Pro Text, sans-serif';
-        ctx.fillText('days tracked', width / 2, statY + 36);
-
-        ctx.fillStyle = '#BBBBBB';
-        ctx.font = '400 20px -apple-system, SF Pro Text, sans-serif';
-        ctx.fillText('lennartp-sch.github.io/Mini-IphoneApp', width / 2, height - 70);
-
-        canvas.toBlob(callback, 'image/png');
     }
 
     roundRect(ctx, x, y, width, height, radius) {

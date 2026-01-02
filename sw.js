@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mood-tracker-v20';
+const CACHE_NAME = 'mood-tracker-v19';
 const ASSETS = [
     './',
     './index.html',
