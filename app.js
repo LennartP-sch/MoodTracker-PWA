@@ -19,6 +19,8 @@ const NOTES_STORAGE_KEY = 'moodTrackerNotes';
 class MoodTracker {
     constructor() {
         this.currentYear = new Date().getFullYear();
+        this.currentMonth = new Date().getMonth();
+        this.currentView = 'month'; // 'month' or 'year'
         this.data = this.loadData();
         this.notes = this.loadNotes();
         this.selectedCell = null;
@@ -29,6 +31,8 @@ class MoodTracker {
     init() {
         this.cacheElements();
         this.renderToday();
+        this.renderWeekdayHeaders();
+        this.renderMonthView();
         this.renderMonthHeaders();
         this.renderGrid();
         this.renderLegend();
@@ -58,7 +62,18 @@ class MoodTracker {
             todayNote: document.getElementById('todayNote'),
             exportBtn: document.getElementById('exportBtn'),
             importBtn: document.getElementById('importBtn'),
-            importFile: document.getElementById('importFile')
+            importFile: document.getElementById('importFile'),
+            // View toggle
+            monthViewBtn: document.getElementById('monthViewBtn'),
+            yearViewBtn: document.getElementById('yearViewBtn'),
+            monthView: document.getElementById('monthView'),
+            yearView: document.getElementById('yearView'),
+            // Month view elements
+            monthTitle: document.getElementById('monthTitle'),
+            prevMonth: document.getElementById('prevMonth'),
+            nextMonth: document.getElementById('nextMonth'),
+            weekdayHeaders: document.getElementById('weekdayHeaders'),
+            monthGrid: document.getElementById('monthGrid')
         };
     }
 
@@ -89,6 +104,43 @@ class MoodTracker {
 
         // Modal note auto-save
         this.elements.modalNote.addEventListener('input', () => this.saveModalNote());
+
+        // View toggle
+        this.elements.monthViewBtn.addEventListener('click', () => this.switchView('month'));
+        this.elements.yearViewBtn.addEventListener('click', () => this.switchView('year'));
+
+        // Month navigation
+        this.elements.prevMonth.addEventListener('click', () => this.changeMonth(-1));
+        this.elements.nextMonth.addEventListener('click', () => this.changeMonth(1));
+    }
+
+    switchView(view) {
+        this.currentView = view;
+
+        // Update toggle buttons
+        this.elements.monthViewBtn.classList.toggle('active', view === 'month');
+        this.elements.yearViewBtn.classList.toggle('active', view === 'year');
+
+        // Show/hide views
+        this.elements.monthView.classList.toggle('hidden', view !== 'month');
+        this.elements.yearView.classList.toggle('hidden', view !== 'year');
+    }
+
+    changeMonth(delta) {
+        this.currentMonth += delta;
+
+        // Handle year overflow
+        if (this.currentMonth > 11) {
+            this.currentMonth = 0;
+            this.currentYear++;
+            this.updateYearTitle();
+        } else if (this.currentMonth < 0) {
+            this.currentMonth = 11;
+            this.currentYear--;
+            this.updateYearTitle();
+        }
+
+        this.renderMonthView();
     }
 
     loadData() {
@@ -166,6 +218,62 @@ class MoodTracker {
         return today.getFullYear() === year &&
             today.getMonth() === month &&
             today.getDate() === day;
+    }
+
+    getFirstDayOfMonth(year, month) {
+        // Get day of week (0=Sun, 1=Mon, ..., 6=Sat)
+        // Convert to Monday-first (0=Mon, ..., 6=Sun)
+        const day = new Date(year, month, 1).getDay();
+        return day === 0 ? 6 : day - 1;
+    }
+
+    renderWeekdayHeaders() {
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const html = days.map(day => `<div class="weekday-header">${day}</div>`).join('');
+        this.elements.weekdayHeaders.innerHTML = html;
+    }
+
+    renderMonthView() {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'];
+
+        // Update month title
+        this.elements.monthTitle.textContent = `${monthNames[this.currentMonth]} ${this.currentYear}`;
+
+        const daysInMonth = this.getDaysInMonth(this.currentYear, this.currentMonth);
+        const firstDay = this.getFirstDayOfMonth(this.currentYear, this.currentMonth);
+
+        let html = '';
+
+        // Empty cells for days before first of month
+        for (let i = 0; i < firstDay; i++) {
+            html += '<div class="month-day empty"></div>';
+        }
+
+        // Days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const key = this.getKey(this.currentYear, this.currentMonth, day);
+            const mood = this.data[key] || '';
+            const hasNote = this.notes[key] ? 'has-note' : '';
+            const isToday = this.isToday(this.currentYear, this.currentMonth, day) ? 'today' : '';
+
+            html += `
+                <div class="month-day ${isToday} ${hasNote}" 
+                     data-key="${key}"
+                     data-mood="${mood}"
+                     data-month="${this.currentMonth}"
+                     data-day="${day}">
+                    ${day}
+                </div>
+            `;
+        }
+
+        this.elements.monthGrid.innerHTML = html;
+
+        // Bind click events
+        this.elements.monthGrid.querySelectorAll('.month-day:not(.empty)').forEach(cell => {
+            cell.addEventListener('click', () => this.openModal(cell));
+        });
     }
 
     updateYearTitle() {
@@ -375,6 +483,7 @@ class MoodTracker {
         }
 
         this.saveData();
+        this.renderMonthView();
         this.updateStats();
         this.closeModal();
     }

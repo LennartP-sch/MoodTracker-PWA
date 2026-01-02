@@ -56,13 +56,39 @@
                 <textarea class="today-note" id="todayNote" placeholder="Add a note about your day..."
                     rows="2"></textarea>
             </section>
+            <!-- View Toggle -->
+            <div class="view-toggle">
+                <button class="toggle-btn active" id="monthViewBtn">Month</button>
+                <button class="toggle-btn" id="yearViewBtn">Year</button>
+            </div>
 
-            <div class="grid-container">
-                <!-- Month Headers -->
-                <div class="month-headers" id="monthHeaders"></div>
+            <!-- Month View -->
+            <div class="month-view" id="monthView">
+                <div class="month-nav">
+                    <button class="month-nav-btn" id="prevMonth" aria-label="Previous month">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                    <h2 class="month-title" id="monthTitle">January 2026</h2>
+                    <button class="month-nav-btn" id="nextMonth" aria-label="Next month">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+                <div class="weekday-headers" id="weekdayHeaders"></div>
+                <div class="month-grid" id="monthGrid"></div>
+            </div>
 
-                <!-- Grid -->
-                <div class="mood-grid" id="moodGrid"></div>
+            <!-- Year View -->
+            <div class="year-view hidden" id="yearView">
+                <div class="grid-container">
+                    <div class="month-headers" id="monthHeaders"></div>
+                    <div class="mood-grid" id="moodGrid"></div>
+                </div>
             </div>
 
             <!-- Statistics -->
