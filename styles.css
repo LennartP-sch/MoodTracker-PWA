@@ -230,6 +230,10 @@ body {
     border-radius: 16px;
     padding: 16px;
     margin-bottom: 20px;
+    overflow-x: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 /* Month Headers */
