@@ -479,6 +479,10 @@ class MoodTracker {
     }
 
     closeModal() {
+        // Save note before closing (in case user only edited text)
+        if (this.selectedCell) {
+            this.saveModalNote();
+        }
         this.elements.moodModal.classList.remove('active');
         this.selectedCell = null;
     }
