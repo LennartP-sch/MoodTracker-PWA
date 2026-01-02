@@ -412,55 +412,62 @@ body {
 .grid-container {
     background: var(--bg-secondary);
     border-radius: 16px;
-    padding: 12px 8px;
-    overflow-x: hidden;
-    width: 100%;
+    padding: 16px 12px;
+    overflow: hidden;
 }
 
-/* Month Headers */
+/* Month Headers Row */
 .month-headers {
-    display: grid;
-    grid-template-columns: 20px repeat(12, 1fr);
-    gap: 1px;
-    margin-bottom: 2px;
+    display: flex;
+    margin-bottom: 6px;
+    padding-left: 24px;
 }
 
 .month-header {
-    font-size: 8px;
+    flex: 1;
+    font-size: 9px;
     font-weight: 600;
     color: var(--text-secondary);
     text-align: center;
     text-transform: uppercase;
-    letter-spacing: 0px;
+    letter-spacing: -0.5px;
 }
 
-/* Day label header is an empty corner cell, styled via .day-label */
+.day-label-header {
+    display: none;
+}
 
-/* Mood Grid */
+/* Mood Grid - 31 rows, each row is a flex container */
 .mood-grid {
-    display: grid;
-    grid-template-columns: 20px repeat(12, 1fr);
-    gap: 1px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Each row in the grid */
+.mood-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
 .day-label {
-    font-size: 8px;
+    width: 22px;
+    font-size: 10px;
     font-weight: 500;
     color: var(--text-tertiary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 14px;
+    text-align: right;
+    padding-right: 4px;
+    flex-shrink: 0;
 }
 
 .mood-cell {
-    aspect-ratio: 1;
-    height: 14px;
+    flex: 1;
+    height: 12px;
     border-radius: 2px;
     background: var(--mood-empty);
     cursor: pointer;
-    transition: transform 0.15s ease, opacity 0.15s ease;
-    position: relative;
+    transition: all 0.15s ease;
 }
 
 .mood-cell:hover {

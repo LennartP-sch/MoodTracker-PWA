@@ -342,10 +342,7 @@ class MoodTracker {
     }
 
     renderMonthHeaders() {
-        const html = ['<div class="day-label-header"></div>'];
-        MONTHS.forEach(month => {
-            html.push(`<div class="month-header">${month}</div>`);
-        });
+        const html = MONTHS.map(month => `<div class="month-header">${month}</div>`);
         this.elements.monthHeaders.innerHTML = html.join('');
     }
 
@@ -353,6 +350,9 @@ class MoodTracker {
         const html = [];
 
         for (let day = 1; day <= 31; day++) {
+            // Start row
+            html.push('<div class="mood-row">');
+
             // Day label
             html.push(`<div class="day-label">${day}</div>`);
 
@@ -377,6 +377,9 @@ class MoodTracker {
                     html.push('<div class="mood-cell empty"></div>');
                 }
             }
+
+            // End row
+            html.push('</div>');
         }
 
         this.elements.moodGrid.innerHTML = html.join('');
