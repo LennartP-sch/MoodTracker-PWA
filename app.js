@@ -699,7 +699,7 @@ class MoodTracker {
                     await navigator.share({
                         files: [file],
                         title: `My ${this.currentYear} Mood Tracker`,
-                        text: `Check out my mood tracking for ${this.currentYear}! 📊`
+                        text: `Check out my mood tracking for ${this.currentYear}! 📊\n\nTry it yourself: https://lennartp-sch.github.io/MoodTracker-PWA/`
                     });
                 } catch (err) {
                     if (err.name !== 'AbortError') {
