@@ -554,102 +554,36 @@ class MoodTracker {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Canvas size (Instagram story friendly: 1080x1920 or square 1080x1080)
+        // Instagram Story format (9:16 aspect ratio)
         const width = 1080;
-        const padding = 60;
-        const cellSize = 24;
+        const height = 1920;
+        const padding = 120;
+
+        // Calculate grid dimensions - larger cells for story format
+        const cellSize = 28;
         const gap = 4;
         const gridWidth = 12 * cellSize + 11 * gap;
         const gridHeight = 31 * cellSize + 30 * gap;
-        const height = padding + 120 + gridHeight + 60 + 200 + padding; // title + grid + legend + stats
 
         canvas.width = width;
         canvas.height = height;
 
-        // Background gradient
-        const gradient = ctx.createLinearGradient(0, 0, width, height);
-        gradient.addColorStop(0, '#0D0D0D');
-        gradient.addColorStop(1, '#1a1a2e');
-        ctx.fillStyle = gradient;
+        // Pure white background
+        ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
 
-        // Add subtle pattern/texture
-        ctx.fillStyle = 'rgba(255,255,255,0.02)';
-        for (let i = 0; i < 50; i++) {
-            const x = Math.random() * width;
-            const y = Math.random() * height;
-            ctx.beginPath();
-            ctx.arc(x, y, Math.random() * 100 + 50, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Year title
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 72px Inter, -apple-system, sans-serif';
+        // Year title - large, bold, black
+        ctx.fillStyle = '#000000';
+        ctx.font = '700 140px -apple-system, SF Pro Display, Helvetica Neue, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`${this.currentYear}`, width / 2, padding + 70);
+        ctx.fillText(`${this.currentYear}`, width / 2, padding + 120);
 
         // Subtitle
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = '24px Inter, -apple-system, sans-serif';
-        ctx.fillText('Mood Tracker', width / 2, padding + 105);
+        ctx.fillStyle = '#999999';
+        ctx.font = '400 32px -apple-system, SF Pro Text, sans-serif';
+        ctx.fillText('My Year in Mood', width / 2, padding + 170);
 
-        // Draw mood grid (centered)
-        const gridX = (width - gridWidth) / 2;
-        let gridY = padding + 140;
-
-        for (let day = 1; day <= 31; day++) {
-            for (let month = 0; month < 12; month++) {
-                const daysInMonth = this.getDaysInMonth(this.currentYear, month);
-                const x = gridX + month * (cellSize + gap);
-                const y = gridY + (day - 1) * (cellSize + gap);
-
-                if (day <= daysInMonth) {
-                    const key = this.getKey(this.currentYear, month, day);
-                    const mood = this.data[key];
-
-                    if (mood && MOODS[mood]) {
-                        ctx.fillStyle = MOODS[mood].color;
-                    } else {
-                        ctx.fillStyle = 'rgba(255,255,255,0.08)';
-                    }
-                } else {
-                    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-                }
-
-                // Rounded rectangle
-                this.roundRect(ctx, x, y, cellSize, cellSize, 4);
-            }
-        }
-
-        // Legend (below grid)
-        let legendY = gridY + gridHeight + 50;
-        ctx.font = 'bold 20px Inter, -apple-system, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.textAlign = 'center';
-        ctx.fillText('Legend', width / 2, legendY);
-
-        legendY += 30;
-        const legendItems = Object.entries(MOODS);
-        const legendWidth = legendItems.length * 80;
-        let legendX = (width - legendWidth) / 2;
-
-        legendItems.forEach(([grade, { color }]) => {
-            // Color box
-            ctx.fillStyle = color;
-            this.roundRect(ctx, legendX, legendY, 30, 30, 6);
-
-            // Grade label
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 14px Inter, -apple-system, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(grade, legendX + 15, legendY + 50);
-
-            legendX += 80;
-        });
-
-        // Stats (below legend)
-        let statsY = legendY + 80;
+        // Calculate stats first (needed for percentages)
         const counts = {};
         let total = 0;
         Object.keys(MOODS).forEach(mood => counts[mood] = 0);
@@ -666,15 +600,74 @@ class MoodTracker {
             }
         }
 
-        ctx.font = 'bold 20px Inter, -apple-system, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${total} days tracked`, width / 2, statsY);
+        // Draw mood grid (centered)
+        const gridX = (width - gridWidth) / 2;
+        const gridY = padding + 220;
 
-        // Watermark
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = '16px Inter, -apple-system, sans-serif';
-        ctx.fillText('lennartp-sch.github.io/Mini-IphoneApp', width / 2, height - 30);
+        for (let day = 1; day <= 31; day++) {
+            for (let month = 0; month < 12; month++) {
+                const daysInMonth = this.getDaysInMonth(this.currentYear, month);
+                const x = gridX + month * (cellSize + gap);
+                const y = gridY + (day - 1) * (cellSize + gap);
+
+                if (day <= daysInMonth) {
+                    const key = this.getKey(this.currentYear, month, day);
+                    const mood = this.data[key];
+
+                    if (mood && MOODS[mood]) {
+                        ctx.fillStyle = MOODS[mood].color;
+                    } else {
+                        ctx.fillStyle = '#F0F0F0';
+                    }
+                } else {
+                    ctx.fillStyle = '#FAFAFA';
+                }
+
+                this.roundRect(ctx, x, y, cellSize, cellSize, 5);
+            }
+        }
+
+        // Legend with percentages - horizontal, centered
+        const legendY = gridY + gridHeight + 80;
+        const legendItems = Object.entries(MOODS);
+        const legendItemWidth = 80;
+        const totalLegendWidth = legendItems.length * legendItemWidth;
+        let legendX = (width - totalLegendWidth) / 2;
+
+        legendItems.forEach(([grade, { color }]) => {
+            const count = counts[grade] || 0;
+            const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+
+            // Color circle
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(legendX + 20, legendY, 16, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Grade label
+            ctx.fillStyle = '#333333';
+            ctx.font = '600 18px -apple-system, SF Pro Text, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(grade, legendX + 20, legendY + 45);
+
+            // Percentage below
+            ctx.fillStyle = '#999999';
+            ctx.font = '400 14px -apple-system, SF Pro Text, sans-serif';
+            ctx.fillText(`${percent}%`, legendX + 20, legendY + 65);
+
+            legendX += legendItemWidth;
+        });
+
+        // Days tracked stat
+        ctx.fillStyle = '#666666';
+        ctx.font = '500 28px -apple-system, SF Pro Text, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${total} days tracked`, width / 2, legendY + 120);
+
+        // Website link watermark
+        ctx.fillStyle = '#AAAAAA';
+        ctx.font = '400 24px -apple-system, SF Pro Text, sans-serif';
+        ctx.fillText('lennartp-sch.github.io/Mini-IphoneApp', width / 2, height - 60);
 
         // Convert to blob and share
         canvas.toBlob(async (blob) => {
