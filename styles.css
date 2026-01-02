@@ -165,6 +165,10 @@ body {
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .today-mood-btn:hover {

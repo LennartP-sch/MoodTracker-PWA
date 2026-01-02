@@ -320,9 +320,13 @@ class MoodTracker {
 
         this.elements.todayMoods.innerHTML = html;
 
-        // Bind click events
+        // Bind click events (touchend for faster iOS response)
         this.elements.todayMoods.querySelectorAll('.today-mood-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.setTodayMood(btn));
+            const handler = (e) => {
+                e.preventDefault();
+                this.setTodayMood(btn);
+            };
+            btn.addEventListener('click', handler);
         });
 
         // Load today's note
@@ -343,6 +347,7 @@ class MoodTracker {
 
         this.saveData();
         this.renderToday();
+        this.renderMonthView();
         this.renderGrid();
         this.updateStats();
     }
