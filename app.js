@@ -894,4 +894,16 @@ setInterval(updateTheme, 60000);
 document.addEventListener('DOMContentLoaded', () => {
     new MoodTracker();
     NotificationManager.init();
+
+    // Tip button - trigger Stripe checkout
+    const tipBtn = document.getElementById('tipBtn');
+    if (tipBtn) {
+        tipBtn.addEventListener('click', () => {
+            const stripeBtn = document.querySelector('stripe-buy-button');
+            if (stripeBtn && stripeBtn.shadowRoot) {
+                const btn = stripeBtn.shadowRoot.querySelector('button');
+                if (btn) btn.click();
+            }
+        });
+    }
 });
