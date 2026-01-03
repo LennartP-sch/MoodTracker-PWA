@@ -76,7 +76,14 @@ class MoodTracker {
             monthGrid: document.getElementById('monthGrid'),
             // Share
             shareBtn: document.getElementById('shareBtn'),
-            shareCanvas: document.getElementById('shareCanvas')
+            shareCanvas: document.getElementById('shareCanvas'),
+            // Share Modal
+            shareModal: document.getElementById('shareModal'),
+            shareModalClose: document.getElementById('shareModalClose'),
+            shareMonthBtn: document.getElementById('shareMonthBtn'),
+            shareYearBtn: document.getElementById('shareYearBtn'),
+            shareMonthLabel: document.getElementById('shareMonthLabel'),
+            shareYearLabel: document.getElementById('shareYearLabel')
         };
     }
 
@@ -118,8 +125,22 @@ class MoodTracker {
         this.elements.prevMonth.addEventListener('click', () => this.changeMonth(-1));
         this.elements.nextMonth.addEventListener('click', () => this.changeMonth(1));
 
-        // Share button
-        this.elements.shareBtn.addEventListener('click', () => this.shareYear());
+        // Share button - opens share modal
+        this.elements.shareBtn.addEventListener('click', () => this.openShareModal());
+
+        // Share modal handlers
+        this.elements.shareModalClose.addEventListener('click', () => this.closeShareModal());
+        this.elements.shareModal.addEventListener('click', (e) => {
+            if (e.target === this.elements.shareModal) this.closeShareModal();
+        });
+        this.elements.shareMonthBtn.addEventListener('click', () => {
+            this.closeShareModal();
+            this.shareMonth();
+        });
+        this.elements.shareYearBtn.addEventListener('click', () => {
+            this.closeShareModal();
+            this.shareYear();
+        });
     }
 
     switchView(view) {
@@ -563,6 +584,183 @@ class MoodTracker {
         event.target.value = '';
     }
 
+    openShareModal() {
+        // Update labels with current month/year
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'];
+        this.elements.shareMonthLabel.textContent = `${monthNames[this.currentMonth]} ${this.currentYear}`;
+        this.elements.shareYearLabel.textContent = this.currentYear;
+        this.elements.shareModal.classList.add('active');
+    }
+
+    closeShareModal() {
+        this.elements.shareModal.classList.remove('active');
+    }
+
+    async shareMonth() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Instagram Story format (9:16)
+        const width = 1080;
+        const height = 1920;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Pure white background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'];
+        const daysInMonth = this.getDaysInMonth(this.currentYear, this.currentMonth);
+        const firstDay = this.getFirstDayOfMonth(this.currentYear, this.currentMonth);
+
+        // Calculate stats for this month
+        const counts = {};
+        let total = 0;
+        Object.keys(MOODS).forEach(mood => counts[mood] = 0);
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const key = this.getKey(this.currentYear, this.currentMonth, day);
+            const mood = this.data[key];
+            if (mood && MOODS[mood]) {
+                counts[mood]++;
+                total++;
+            }
+        }
+
+        // === HEADER ===
+        ctx.fillStyle = '#1A1A1A';
+        ctx.font = '700 96px -apple-system, SF Pro Display, Helvetica Neue, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(monthNames[this.currentMonth], width / 2, 180);
+
+        ctx.font = '700 144px -apple-system, SF Pro Display, Helvetica Neue, sans-serif';
+        ctx.fillText(`${this.currentYear}`, width / 2, 320);
+
+        ctx.fillStyle = '#999999';
+        ctx.font = '400 28px -apple-system, SF Pro Text, sans-serif';
+        ctx.fillText('My Month in Mood', width / 2, 380);
+
+        // === MONTH GRID ===
+        const cellSize = 120;
+        const gap = 12;
+        const gridW = 7 * cellSize + 6 * gap;
+        const gridX = (width - gridW) / 2;
+        const gridY = 480;
+
+        // Weekday headers
+        const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+        ctx.fillStyle = '#888888';
+        ctx.font = '600 24px -apple-system, SF Pro Text, sans-serif';
+        weekdays.forEach((day, i) => {
+            const x = gridX + i * (cellSize + gap) + cellSize / 2;
+            ctx.fillText(day, x, gridY - 20);
+        });
+
+        // Days grid
+        let dayNum = 1;
+        const rows = Math.ceil((firstDay + daysInMonth) / 7);
+
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < 7; col++) {
+                const cellIndex = row * 7 + col;
+                const x = gridX + col * (cellSize + gap);
+                const y = gridY + row * (cellSize + gap);
+
+                if (cellIndex >= firstDay && dayNum <= daysInMonth) {
+                    const key = this.getKey(this.currentYear, this.currentMonth, dayNum);
+                    const mood = this.data[key];
+
+                    if (mood && MOODS[mood]) {
+                        ctx.fillStyle = MOODS[mood].color;
+                    } else {
+                        ctx.fillStyle = '#EEEEEE';
+                    }
+
+                    this.roundRect(ctx, x, y, cellSize, cellSize, 16);
+
+                    // Day number
+                    ctx.fillStyle = mood && MOODS[mood] ?
+                        (['C', 'B'].includes(mood) ? '#333' : '#FFF') : '#999';
+                    ctx.font = '600 36px -apple-system, SF Pro Display, sans-serif';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(dayNum.toString(), x + cellSize / 2, y + cellSize / 2);
+
+                    dayNum++;
+                }
+            }
+        }
+
+        // === LEGEND ===
+        const legendY = gridY + rows * (cellSize + gap) + 80;
+        const legendItems = Object.entries(MOODS);
+        const legendGap = 110;
+        const legendTotalW = (legendItems.length - 1) * legendGap;
+
+        legendItems.forEach(([grade, { color }], i) => {
+            const x = (width - legendTotalW) / 2 + i * legendGap;
+            const count = counts[grade] || 0;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, legendY, 22, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = ['C', 'B'].includes(grade) ? '#333' : '#FFF';
+            ctx.font = '700 14px -apple-system, SF Pro Display, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(grade, x, legendY);
+
+            ctx.fillStyle = '#666666';
+            ctx.font = '500 18px -apple-system, SF Pro Text, sans-serif';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(`${pct}%`, x, legendY + 50);
+        });
+
+        // === STATS ===
+        const statY = legendY + 130;
+        ctx.fillStyle = '#1A1A1A';
+        ctx.font = '600 52px -apple-system, SF Pro Display, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(total.toString(), width / 2, statY);
+
+        ctx.fillStyle = '#888888';
+        ctx.font = '400 22px -apple-system, SF Pro Text, sans-serif';
+        ctx.fillText('days tracked', width / 2, statY + 36);
+
+        // === FOOTER ===
+        ctx.fillStyle = '#BBBBBB';
+        ctx.font = '400 20px -apple-system, SF Pro Text, sans-serif';
+        ctx.fillText('lennartp-sch.github.io/MoodTracker-PWA', width / 2, height - 70);
+
+        // Convert to blob and share
+        canvas.toBlob(async (blob) => {
+            const file = new File([blob], `mood-tracker-${monthNames[this.currentMonth].toLowerCase()}-${this.currentYear}.png`, { type: 'image/png' });
+
+            if (navigator.share && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: `my mood throughout ${monthNames[this.currentMonth]} ${this.currentYear}`,
+                        text: `Check out my mood tracking for ${monthNames[this.currentMonth]} ${this.currentYear}! 📊\n\n📱 Try it yourself: https://lennartp-sch.github.io/MoodTracker-PWA/\n\n📲 Install as app:\n• iOS: Safari → Share → Add to Home Screen\n• Android: Chrome → Menu (⋮) → Install app`
+                    });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        this.downloadImage(blob, `mood-tracker-${monthNames[this.currentMonth].toLowerCase()}-${this.currentYear}.png`);
+                    }
+                }
+            } else {
+                this.downloadImage(blob, `mood-tracker-${monthNames[this.currentMonth].toLowerCase()}-${this.currentYear}.png`);
+            }
+        }, 'image/png');
+    }
+
     async shareYear() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -700,7 +898,7 @@ class MoodTracker {
                 try {
                     await navigator.share({
                         files: [file],
-                        title: `My ${this.currentYear} Mood Tracker`,
+                        title: `my mood throughout ${this.currentYear}`,
                         text: `Check out my mood tracking for ${this.currentYear}! 📊\n\n📱 Try it yourself: https://lennartp-sch.github.io/MoodTracker-PWA/\n\n📲 Install as app:\n• iOS: Safari → Share → Add to Home Screen\n• Android: Chrome → Menu (⋮) → Install app`
                     });
                 } catch (err) {

@@ -974,6 +974,58 @@ body {
     flex-shrink: 0;
 }
 
+/* Share Modal */
+.share-modal {
+    max-width: 320px;
+}
+
+.share-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.share-option-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.share-option-btn:hover {
+    border-color: var(--text-tertiary);
+    transform: translateY(-1px);
+}
+
+.share-option-btn:active {
+    transform: translateY(0);
+}
+
+.share-option-btn svg {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.share-option-btn span {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.share-option-btn small {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-tertiary);
+}
+
 /* Responsive */
 @media (min-width: 768px) {
     .main {
