@@ -83,8 +83,16 @@ class MoodTracker {
             shareMonthBtn: document.getElementById('shareMonthBtn'),
             shareYearBtn: document.getElementById('shareYearBtn'),
             shareMonthLabel: document.getElementById('shareMonthLabel'),
-            shareYearLabel: document.getElementById('shareYearLabel')
+            shareYearLabel: document.getElementById('shareYearLabel'),
+            // Charts
+            chartsBtn: document.getElementById('chartsBtn'),
+            chartModal: document.getElementById('chartModal'),
+            chartModalClose: document.getElementById('chartModalClose'),
+            moodChart: document.getElementById('moodChart'),
+            chartLegend: document.getElementById('chartLegend'),
+            chartTimeframes: document.querySelectorAll('.timeframe-btn')
         };
+        this.chartRange = 'week'; // Default chart range
     }
 
     bindEvents() {
@@ -106,7 +114,10 @@ class MoodTracker {
 
         // Keyboard
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') this.closeModal();
+            if (e.key === 'Escape') {
+                this.closeModal();
+                this.closeChartModal();
+            }
         });
 
         // Today note auto-save
@@ -140,6 +151,23 @@ class MoodTracker {
         this.elements.shareYearBtn.addEventListener('click', () => {
             this.closeShareModal();
             this.shareYear();
+        });
+
+        // Charts button and modal
+        this.elements.chartsBtn.addEventListener('click', () => this.openChartModal());
+        this.elements.chartModalClose.addEventListener('click', () => this.closeChartModal());
+        this.elements.chartModal.addEventListener('click', (e) => {
+            if (e.target === this.elements.chartModal) this.closeChartModal();
+        });
+
+        // Chart timeframe buttons
+        this.elements.chartTimeframes.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.elements.chartTimeframes.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.chartRange = btn.dataset.range;
+                this.renderChart();
+            });
         });
     }
 
@@ -529,6 +557,250 @@ class MoodTracker {
         this.renderMonthView();
         this.updateStats();
         this.closeModal();
+    }
+
+    // ===== CHART METHODS =====
+
+    openChartModal() {
+        this.elements.chartModal.classList.add('active');
+        this.renderChart();
+        this.renderChartLegend();
+    }
+
+    closeChartModal() {
+        this.elements.chartModal.classList.remove('active');
+    }
+
+    moodToValue(mood) {
+        // Convert mood to numerical value for charting
+        // A+ = 5, A = 4, B = 3, C = 2 (baseline), D = 1, F = 0
+        const values = { 'A+': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1, 'F': 0 };
+        return values[mood] !== undefined ? values[mood] : null;
+    }
+
+    getMoodDataForRange(range) {
+        const today = new Date();
+        const data = [];
+        let startDate;
+
+        if (range === 'week') {
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - 6);
+        } else if (range === 'month') {
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - 29);
+        } else { // year
+            startDate = new Date(today);
+            startDate.setFullYear(today.getFullYear() - 1);
+            startDate.setDate(startDate.getDate() + 1);
+        }
+
+        const current = new Date(startDate);
+        while (current <= today) {
+            const key = this.getKey(current.getFullYear(), current.getMonth(), current.getDate());
+            const mood = this.data[key] || null;
+            const value = mood ? this.moodToValue(mood) : null;
+
+            data.push({
+                date: new Date(current),
+                mood: mood,
+                value: value,
+                label: this.formatDateLabel(current, range)
+            });
+
+            current.setDate(current.getDate() + 1);
+        }
+
+        return data;
+    }
+
+    formatDateLabel(date, range) {
+        if (range === 'week') {
+            return date.toLocaleDateString('en-US', { weekday: 'short' });
+        } else if (range === 'month') {
+            return date.getDate().toString();
+        } else {
+            return MONTHS[date.getMonth()];
+        }
+    }
+
+    renderChart() {
+        const canvas = this.elements.moodChart;
+        const ctx = canvas.getContext('2d');
+        const container = canvas.parentElement;
+
+        // Set canvas size for crisp rendering
+        const dpr = window.devicePixelRatio || 1;
+        const rect = container.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const width = rect.width;
+        const height = rect.height;
+        const padding = { top: 30, right: 20, bottom: 40, left: 45 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+
+        // Get data for current range
+        const data = this.getMoodDataForRange(this.chartRange);
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Get theme colors
+        const computedStyle = getComputedStyle(document.documentElement);
+        const textSecondary = computedStyle.getPropertyValue('--text-secondary').trim() || '#8A8A8A';
+        const textTertiary = computedStyle.getPropertyValue('--text-tertiary').trim() || '#5A5A5A';
+        const bgTertiary = computedStyle.getPropertyValue('--bg-tertiary').trim() || '#252525';
+
+        // Y-axis labels (mood levels)
+        const yLabels = ['F', 'D', 'C', 'B', 'A', 'A+'];
+        const yStep = chartHeight / 5;
+
+        ctx.font = '500 11px Inter, -apple-system, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+
+        yLabels.forEach((label, i) => {
+            const y = padding.top + chartHeight - (i * yStep);
+
+            // Grid lines
+            ctx.strokeStyle = bgTertiary;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+
+            // Highlight baseline (C)
+            if (label === 'C') {
+                ctx.strokeStyle = MOODS['C'].color;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Y-axis label
+            ctx.fillStyle = label === 'C' ? MOODS['C'].color : textSecondary;
+            ctx.fillText(label, padding.left - 10, y);
+        });
+
+        // Filter valid data points
+        const validData = data.filter(d => d.value !== null);
+
+        if (validData.length === 0) {
+            // No data message
+            ctx.font = '500 14px Inter, -apple-system, sans-serif';
+            ctx.fillStyle = textSecondary;
+            ctx.textAlign = 'center';
+            ctx.fillText('No mood data for this period', width / 2, height / 2);
+            return;
+        }
+
+        // Calculate x positions
+        const xStep = chartWidth / Math.max(data.length - 1, 1);
+
+        // Collect all valid points for drawing
+        const points = [];
+        data.forEach((d, i) => {
+            if (d.value === null) return;
+            const x = padding.left + i * xStep;
+            const y = padding.top + chartHeight - (d.value * yStep);
+            points.push({ x, y, mood: d.mood });
+        });
+
+        if (points.length > 1) {
+            // Draw line connecting all points directly (no overshoot)
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+
+            // Create gradient for line
+            const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
+            gradient.addColorStop(0, MOODS['A+'].color);
+            gradient.addColorStop(0.2, MOODS['A'].color);
+            gradient.addColorStop(0.4, MOODS['B'].color);
+            gradient.addColorStop(0.5, MOODS['C'].color);
+            gradient.addColorStop(0.7, MOODS['D'].color);
+            gradient.addColorStop(1, MOODS['F'].color);
+
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+
+        // Draw data points
+        data.forEach((d, i) => {
+            if (d.value === null) return;
+
+            const x = padding.left + i * xStep;
+            const y = padding.top + chartHeight - (d.value * yStep);
+
+            // Outer glow
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.fillStyle = MOODS[d.mood].color + '40';
+            ctx.fill();
+
+            // Inner dot
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = MOODS[d.mood].color;
+            ctx.fill();
+
+            // White center
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+        });
+
+        // X-axis labels
+        ctx.font = '500 10px Inter, -apple-system, sans-serif';
+        ctx.fillStyle = textTertiary;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        // Determine label frequency based on data length
+        let labelFreq = 1;
+        if (this.chartRange === 'month') labelFreq = 5;
+        if (this.chartRange === 'year') labelFreq = Math.ceil(data.length / 12);
+
+        data.forEach((d, i) => {
+            if (this.chartRange === 'year') {
+                // For year view, show month labels at the start of each month
+                const prevDate = i > 0 ? data[i - 1].date : null;
+                if (!prevDate || d.date.getMonth() !== prevDate.getMonth()) {
+                    const x = padding.left + i * xStep;
+                    ctx.fillText(MONTHS[d.date.getMonth()], x, height - padding.bottom + 10);
+                }
+            } else if (i % labelFreq === 0 || i === data.length - 1) {
+                const x = padding.left + i * xStep;
+                ctx.fillText(d.label, x, height - padding.bottom + 10);
+            }
+        });
+    }
+
+    renderChartLegend() {
+        const html = Object.entries(MOODS).map(([grade, { label, color }]) => `
+            <div class="chart-legend-item">
+                <div class="chart-legend-color" style="background: ${color}"></div>
+                <span class="chart-legend-label">${grade}</span>
+            </div>
+        `).join('');
+
+        this.elements.chartLegend.innerHTML = html +
+            '<div class="chart-baseline-label">C = neutral baseline</div>';
     }
 
     exportData() {
