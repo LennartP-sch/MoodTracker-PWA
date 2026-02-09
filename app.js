@@ -396,6 +396,8 @@ class MoodTracker {
             delete this.data[key];
         } else {
             this.data[key] = mood;
+            // Track mood anonymously (only the grade, no user data)
+            this.trackMoodAnonymously(mood);
         }
 
         this.saveData();
@@ -548,6 +550,8 @@ class MoodTracker {
         if (mood) {
             this.data[key] = mood;
             this.selectedCell.dataset.mood = mood;
+            // Track mood anonymously (only the grade, no user data)
+            this.trackMoodAnonymously(mood);
         } else {
             delete this.data[key];
             this.selectedCell.dataset.mood = '';
@@ -557,6 +561,17 @@ class MoodTracker {
         this.renderMonthView();
         this.updateStats();
         this.closeModal();
+    }
+
+    // Anonymous mood tracking via GoatCounter (GDPR-compliant, no cookies)
+    trackMoodAnonymously(mood) {
+        if (typeof goatcounter !== 'undefined' && goatcounter.count) {
+            goatcounter.count({
+                path: `mood/${mood}`,
+                title: `Mood: ${mood}`,
+                event: true
+            });
+        }
     }
 
     // ===== CHART METHODS =====
