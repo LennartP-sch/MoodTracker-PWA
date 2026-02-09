@@ -169,6 +169,15 @@ class MoodTracker {
                 this.renderChart();
             });
         });
+
+        // Chart tap interaction for showing tooltips
+        this.elements.moodChart.addEventListener('click', (e) => this.handleChartTap(e));
+        this.elements.moodChart.addEventListener('touchend', (e) => {
+            if (e.changedTouches && e.changedTouches[0]) {
+                const touch = e.changedTouches[0];
+                this.handleChartTap({ clientX: touch.clientX, clientY: touch.clientY });
+            }
+        });
     }
 
     switchView(view) {
@@ -587,9 +596,9 @@ class MoodTracker {
     }
 
     moodToValue(mood) {
-        // Convert mood to numerical value for charting
-        // A+ = 5, A = 4, B = 3, C = 2 (baseline), D = 1, F = 0
-        const values = { 'A+': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1, 'F': 0 };
+        // Convert mood to score points for cumulative chart
+        // A+ = +3, A = +2, B = +1, C = 0 (baseline), D = -1, F = -2
+        const values = { 'A+': 3, 'A': 2, 'B': 1, 'C': 0, 'D': -1, 'F': -2 };
         return values[mood] !== undefined ? values[mood] : null;
     }
 
@@ -611,15 +620,21 @@ class MoodTracker {
         }
 
         const current = new Date(startDate);
+        let cumulativeScore = 0;
+
         while (current <= today) {
             const key = this.getKey(current.getFullYear(), current.getMonth(), current.getDate());
             const mood = this.data[key] || null;
-            const value = mood ? this.moodToValue(mood) : null;
+            const points = mood ? this.moodToValue(mood) : 0;
+
+            // Add points to cumulative score
+            cumulativeScore += points;
 
             data.push({
                 date: new Date(current),
                 mood: mood,
-                value: value,
+                points: points,
+                cumulativeScore: cumulativeScore,
                 label: this.formatDateLabel(current, range)
             });
 
@@ -653,169 +668,262 @@ class MoodTracker {
 
         const width = rect.width;
         const height = rect.height;
-        const padding = { top: 30, right: 20, bottom: 40, left: 45 };
+        const padding = { top: 20, right: 15, bottom: 35, left: 15 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
         // Get data for current range
         const data = this.getMoodDataForRange(this.chartRange);
+        const numDays = data.length;
+
+        // Store data for tap interaction
+        this.chartData = data;
+        this.chartPadding = padding;
+        this.chartWidth = chartWidth;
+        this.chartHeight = chartHeight;
 
         // Clear canvas
         ctx.clearRect(0, 0, width, height);
 
         // Get theme colors
         const computedStyle = getComputedStyle(document.documentElement);
-        const textSecondary = computedStyle.getPropertyValue('--text-secondary').trim() || '#8A8A8A';
         const textTertiary = computedStyle.getPropertyValue('--text-tertiary').trim() || '#5A5A5A';
         const bgTertiary = computedStyle.getPropertyValue('--bg-tertiary').trim() || '#252525';
 
-        // Y-axis labels (mood levels)
-        const yLabels = ['F', 'D', 'C', 'B', 'A', 'A+'];
-        const yStep = chartHeight / 5;
+        // Find first and last index with actual mood data
+        let firstDataIndex = -1;
+        let lastDataIndex = -1;
+        for (let i = 0; i < data.length; i++) {
+            if (data[i].mood) {
+                if (firstDataIndex === -1) firstDataIndex = i;
+                lastDataIndex = i;
+            }
+        }
 
-        ctx.font = '500 11px Inter, -apple-system, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
+        // Calculate best and worst case trajectories based on days with data
+        const daysWithData = lastDataIndex - firstDataIndex + 1;
+        const bestCaseMax = daysWithData * 3;  // All A+'s
+        const worstCaseMin = daysWithData * -2; // All F's
 
-        yLabels.forEach((label, i) => {
-            const y = padding.top + chartHeight - (i * yStep);
+        // Get actual min/max from data (only from valid range)
+        const validScores = data.slice(firstDataIndex, lastDataIndex + 1).map(d => d.cumulativeScore);
+        const actualMax = validScores.length > 0 ? Math.max(...validScores, 0) : 0;
+        const actualMin = validScores.length > 0 ? Math.min(...validScores, 0) : 0;
 
-            // Grid lines
+        // Determine Y-axis range
+        const yMax = Math.max(bestCaseMax, actualMax) + 5;
+        const yMin = Math.min(worstCaseMin, actualMin) - 5;
+        const yRange = yMax - yMin;
+
+        // Store for tap interaction
+        this.chartYMax = yMax;
+        this.chartYMin = yMin;
+
+        // Helper function to convert score to Y position
+        const scoreToY = (score) => {
+            return padding.top + chartHeight - ((score - yMin) / yRange * chartHeight);
+        };
+
+        // Calculate x positions
+        const xStep = chartWidth / Math.max(numDays - 1, 1);
+        this.chartXStep = xStep;
+
+        // Draw subtle horizontal grid lines (no labels)
+        const gridCount = 5;
+        for (let i = 0; i <= gridCount; i++) {
+            const score = yMin + (yRange * i / gridCount);
+            const y = scoreToY(score);
+
             ctx.strokeStyle = bgTertiary;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(padding.left, y);
             ctx.lineTo(width - padding.right, y);
             ctx.stroke();
-
-            // Highlight baseline (C)
-            if (label === 'C') {
-                ctx.strokeStyle = MOODS['C'].color;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(padding.left, y);
-                ctx.lineTo(width - padding.right, y);
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-
-            // Y-axis label
-            ctx.fillStyle = label === 'C' ? MOODS['C'].color : textSecondary;
-            ctx.fillText(label, padding.left - 10, y);
-        });
-
-        // Filter valid data points
-        const validData = data.filter(d => d.value !== null);
-
-        if (validData.length === 0) {
-            // No data message
-            ctx.font = '500 14px Inter, -apple-system, sans-serif';
-            ctx.fillStyle = textSecondary;
-            ctx.textAlign = 'center';
-            ctx.fillText('No mood data for this period', width / 2, height / 2);
-            return;
         }
 
-        // Calculate x positions
-        const xStep = chartWidth / Math.max(data.length - 1, 1);
+        // Draw 0 baseline (grey dashed line)
+        const zeroY = scoreToY(0);
+        ctx.strokeStyle = textTertiary;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, zeroY);
+        ctx.lineTo(width - padding.right, zeroY);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-        // Collect all valid points for drawing
-        const points = [];
-        data.forEach((d, i) => {
-            if (d.value === null) return;
-            const x = padding.left + i * xStep;
-            const y = padding.top + chartHeight - (d.value * yStep);
-            points.push({ x, y, mood: d.mood });
-        });
+        // Only draw reference lines and data line if we have data
+        if (firstDataIndex !== -1) {
+            const firstX = padding.left + firstDataIndex * xStep;
+            const lastX = padding.left + lastDataIndex * xStep;
+            const firstScore = data[firstDataIndex].cumulativeScore;
 
-        if (points.length > 1) {
-            // Draw line connecting all points directly (no overshoot)
+            // Draw best-case reference line from first data point
+            ctx.strokeStyle = MOODS['A+'].color + '40';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
             ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
+            ctx.moveTo(firstX, scoreToY(firstScore));
+            ctx.lineTo(lastX, scoreToY(firstScore + bestCaseMax));
+            ctx.stroke();
+            ctx.setLineDash([]);
 
-            for (let i = 1; i < points.length; i++) {
-                ctx.lineTo(points[i].x, points[i].y);
-            }
+            // Draw worst-case reference line from first data point
+            ctx.strokeStyle = MOODS['F'].color + '40';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(firstX, scoreToY(firstScore));
+            ctx.lineTo(lastX, scoreToY(firstScore + worstCaseMin));
+            ctx.stroke();
+            ctx.setLineDash([]);
 
-            // Create gradient for line
-            const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
-            gradient.addColorStop(0, MOODS['A+'].color);
-            gradient.addColorStop(0.2, MOODS['A'].color);
-            gradient.addColorStop(0.4, MOODS['B'].color);
-            gradient.addColorStop(0.5, MOODS['C'].color);
-            gradient.addColorStop(0.7, MOODS['D'].color);
-            gradient.addColorStop(1, MOODS['F'].color);
-
-            ctx.strokeStyle = gradient;
+            // Draw the actual cumulative score line with smooth color blending
+            // Only from first data point onwards
             ctx.lineWidth = 3;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.stroke();
+
+            let lastMood = data[firstDataIndex].mood;
+
+            for (let i = firstDataIndex + 1; i <= lastDataIndex; i++) {
+                const prevX = padding.left + (i - 1) * xStep;
+                const prevY = scoreToY(data[i - 1].cumulativeScore);
+                const x = padding.left + i * xStep;
+                const y = scoreToY(data[i].cumulativeScore);
+
+                // Get moods for gradient
+                const prevMood = data[i - 1].mood || lastMood;
+                const currentMood = data[i].mood || lastMood;
+
+                // Create gradient for smooth color transition
+                const gradient = ctx.createLinearGradient(prevX, 0, x, 0);
+                gradient.addColorStop(0, MOODS[prevMood].color);
+                gradient.addColorStop(1, MOODS[currentMood].color);
+
+                ctx.beginPath();
+                ctx.moveTo(prevX, prevY);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = gradient;
+                ctx.stroke();
+
+                // Update lastMood if this day has a mood logged
+                if (data[i].mood) {
+                    lastMood = data[i].mood;
+                }
+            }
         }
 
-        // Draw data points
-        data.forEach((d, i) => {
-            if (d.value === null) return;
-
-            const x = padding.left + i * xStep;
-            const y = padding.top + chartHeight - (d.value * yStep);
-
-            // Outer glow
-            ctx.beginPath();
-            ctx.arc(x, y, 8, 0, Math.PI * 2);
-            ctx.fillStyle = MOODS[d.mood].color + '40';
-            ctx.fill();
-
-            // Inner dot
-            ctx.beginPath();
-            ctx.arc(x, y, 5, 0, Math.PI * 2);
-            ctx.fillStyle = MOODS[d.mood].color;
-            ctx.fill();
-
-            // White center
-            ctx.beginPath();
-            ctx.arc(x, y, 2, 0, Math.PI * 2);
-            ctx.fillStyle = '#fff';
-            ctx.fill();
-        });
-
         // X-axis labels
-        ctx.font = '500 10px Inter, -apple-system, sans-serif';
+        ctx.font = '500 9px Inter, -apple-system, sans-serif';
         ctx.fillStyle = textTertiary;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
 
-        // Determine label frequency based on data length
-        let labelFreq = 1;
-        if (this.chartRange === 'month') labelFreq = 5;
-        if (this.chartRange === 'year') labelFreq = Math.ceil(data.length / 12);
-
-        data.forEach((d, i) => {
-            if (this.chartRange === 'year') {
-                // For year view, show month labels at the start of each month
+        if (this.chartRange === 'year') {
+            // For year view, show every other month to prevent overlap
+            let lastLabelMonth = -2;
+            data.forEach((d, i) => {
+                const currentMonth = d.date.getMonth();
                 const prevDate = i > 0 ? data[i - 1].date : null;
-                if (!prevDate || d.date.getMonth() !== prevDate.getMonth()) {
+
+                // Only show label at month boundaries, and skip every other month
+                if ((!prevDate || d.date.getMonth() !== prevDate.getMonth()) &&
+                    (currentMonth - lastLabelMonth >= 2 || lastLabelMonth > currentMonth)) {
                     const x = padding.left + i * xStep;
-                    ctx.fillText(MONTHS[d.date.getMonth()], x, height - padding.bottom + 10);
+                    // Use short month names (3 letters)
+                    const shortMonth = MONTHS[currentMonth].substring(0, 3);
+                    ctx.fillText(shortMonth, x, height - padding.bottom + 8);
+                    lastLabelMonth = currentMonth;
                 }
-            } else if (i % labelFreq === 0 || i === data.length - 1) {
+            });
+        } else if (this.chartRange === 'month') {
+            // Show every 5th day for month view
+            data.forEach((d, i) => {
+                if (i % 5 === 0 || i === data.length - 1) {
+                    const x = padding.left + i * xStep;
+                    ctx.fillText(d.label, x, height - padding.bottom + 8);
+                }
+            });
+        } else {
+            // Week view - show all days
+            data.forEach((d, i) => {
                 const x = padding.left + i * xStep;
-                ctx.fillText(d.label, x, height - padding.bottom + 10);
-            }
-        });
+                ctx.fillText(d.label, x, height - padding.bottom + 8);
+            });
+        }
+    }
+
+    handleChartTap(event) {
+        if (!this.chartData || this.chartData.length === 0) return;
+
+        const canvas = this.elements.moodChart;
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const x = (event.clientX - rect.left);
+
+        // Find the closest data point
+        const dataX = x - this.chartPadding.left;
+        const index = Math.round(dataX / this.chartXStep);
+
+        if (index >= 0 && index < this.chartData.length) {
+            const dataPoint = this.chartData[index];
+            const dateStr = dataPoint.date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+            const score = dataPoint.cumulativeScore;
+            const mood = dataPoint.mood || 'No mood';
+
+            // Show tooltip
+            this.showChartTooltip(event.clientX, event.clientY,
+                `${dateStr}\nScore: ${score >= 0 ? '+' : ''}${score}\nMood: ${mood}`);
+        }
+    }
+
+    showChartTooltip(x, y, text) {
+        // Remove existing tooltip
+        const existing = document.querySelector('.chart-tooltip');
+        if (existing) existing.remove();
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'chart-tooltip';
+        tooltip.innerHTML = text.replace(/\n/g, '<br>');
+        tooltip.style.cssText = `
+            position: fixed;
+            left: ${x}px;
+            top: ${y - 80}px;
+            transform: translateX(-50%);
+            background: rgba(40, 40, 40, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            z-index: 10000;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
+        document.body.appendChild(tooltip);
+
+        // Auto-remove after 2 seconds
+        setTimeout(() => tooltip.remove(), 2000);
     }
 
     renderChartLegend() {
+        const pointValues = { 'A+': '+3', 'A': '+2', 'B': '+1', 'C': '0', 'D': '-1', 'F': '-2' };
         const html = Object.entries(MOODS).map(([grade, { label, color }]) => `
             <div class="chart-legend-item">
                 <div class="chart-legend-color" style="background: ${color}"></div>
-                <span class="chart-legend-label">${grade}</span>
+                <span class="chart-legend-label">${grade} (${pointValues[grade]})</span>
             </div>
         `).join('');
 
         this.elements.chartLegend.innerHTML = html +
-            '<div class="chart-baseline-label">C = neutral baseline</div>';
+            '<div class="chart-baseline-label">Cumulative score • 0 = neutral baseline</div>';
     }
 
     exportData() {
